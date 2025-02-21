@@ -191,7 +191,11 @@ export default function AssessmentForm() {
       };
 
       const missingFields = Object.entries(requiredFields)
-        .filter(([key]) => !formData[key as keyof FormData])
+        .filter(([key]) => {
+          const value = formData[key as keyof FormData];
+          // Considerar valores booleanos (true/false) como preenchidos
+          return typeof value === 'boolean' ? false : !value;
+        })
         .map(([, label]) => label);
 
       if (missingFields.length > 0) {
@@ -290,6 +294,33 @@ export default function AssessmentForm() {
 
   const currentQuestion = currentStep <= questions.length ? questions[currentStep - 1] : null;
 
+  const canProceed = () => {
+    if (currentStep <= questions.length) {
+      const currentField = questions[currentStep - 1].field;
+      if (currentField === 'chest_pain') {
+        // Se respondeu sim para dores no peito, precisa responder sobre o laudo médico
+        if (formData.chest_pain === true) {
+          if (formData.medical_clearance === true) {
+            // Se tem laudo médico, precisa fazer upload
+            return formData.medical_document_url != null;
+          }
+          // Se não tem laudo médico, pode prosseguir
+          return formData.medical_clearance === false;
+        }
+        // Se respondeu não para dores no peito, pode prosseguir
+        return formData.chest_pain === false;
+      }
+      // Para outras perguntas, verifica se há resposta
+      return formData[currentField as keyof FormData] !== '';
+    }
+    // Para o termo de acordo
+    if (currentStep === questions.length + 1) {
+      return formData.agreement;
+    }
+    // Para a última etapa (revisão)
+    return true;
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-8">
       <div className="bg-[#FF5733]/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-[#FF5733]/20">
@@ -318,20 +349,20 @@ export default function AssessmentForm() {
                     if (currentQuestion.field === 'chest_pain') {
                       handleInputChange('chest_pain', option.value === 'sim');
                       if (option.value === 'sim') {
-                        // Não avança para a próxima pergunta se a resposta for sim
                         handleInputChange('medical_clearance', null);
-                      } else {
-                        handleNext();
                       }
                     } else {
                       handleInputChange(currentQuestion.field as keyof FormData, option.value);
-                      handleNext();
                     }
                   }}
                   className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${
-                    formData[currentQuestion.field as keyof FormData] === option.value
-                      ? 'bg-[#FF5733] text-white'
-                      : 'bg-white/10 text-white hover:bg-white/20'
+                    currentQuestion.field === 'chest_pain'
+                      ? (formData.chest_pain && option.value === 'sim') || (!formData.chest_pain && option.value === 'nao')
+                        ? 'bg-[#FF5733] text-white'
+                        : 'bg-white/10 text-white hover:bg-white/20'
+                      : formData[currentQuestion.field as keyof FormData] === option.value
+                        ? 'bg-[#FF5733] text-white'
+                        : 'bg-white/10 text-white hover:bg-white/20'
                   }`}
                 >
                   {option.label}
@@ -348,7 +379,6 @@ export default function AssessmentForm() {
                   <button
                     onClick={() => {
                       handleInputChange('medical_clearance', true);
-                      // Não avança aqui, espera o upload do documento
                     }}
                     className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${
                       formData.medical_clearance === true
@@ -361,7 +391,6 @@ export default function AssessmentForm() {
                   <button
                     onClick={() => {
                       handleInputChange('medical_clearance', false);
-                      handleNext();
                     }}
                     className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${
                       formData.medical_clearance === false
@@ -406,9 +435,6 @@ export default function AssessmentForm() {
                   checked={formData.agreement}
                   onChange={(e) => {
                     handleInputChange('agreement', e.target.checked);
-                    if (e.target.checked) {
-                      handleNext();
-                    }
                   }}
                   className="mt-1"
                 />
@@ -452,7 +478,8 @@ export default function AssessmentForm() {
           {currentStep < totalSteps && (
             <button
               onClick={handleNext}
-              className="px-6 py-3 rounded-xl bg-[#FF5733] text-white hover:bg-[#ff6242] transition-all flex items-center"
+              disabled={!canProceed()}
+              className="px-6 py-3 rounded-xl bg-[#FF5733] text-white hover:bg-[#ff6242] transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Próximo
               <ChevronRight className="ml-2" size={20} />

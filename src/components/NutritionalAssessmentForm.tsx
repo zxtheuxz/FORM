@@ -3,15 +3,23 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 import { ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
+import HealthHistorySection from './HealthHistorySection';
 
 // Tipos para o histórico de saúde
-type HealthHistory = {
+interface HealthHistory {
+  has_chronic_diseases: boolean | null;
   chronic_diseases: string;
+  has_previous_surgeries: boolean | null;
   previous_surgeries: string;
+  has_food_allergies: boolean | null;
   food_allergies: string;
+  has_medications: boolean | null;
   medications: string;
+  has_family_history: boolean | null;
   family_history: string;
   anxiety_level: number;
+  // Campos específicos femininos
+  has_gynecological_diseases?: boolean;
   gynecological_diseases?: string;
   menstrual_cycle?: {
     first_period_age?: number;
@@ -20,32 +28,18 @@ type HealthHistory = {
     symptoms?: string[];
     affects_eating?: boolean;
   };
-  pregnancies?: {
-    count: number;
-    last_pregnancy?: string;
-    delivery_type?: string;
-    pregnancy_loss?: boolean;
-    trying_to_conceive?: boolean;
-  };
-  contraceptive?: {
-    method: string;
-    duration: string;
-  };
-  libido?: 'low' | 'high';
-};
+}
 
 // Tipos para o estilo de vida
-type Lifestyle = {
-  physical_activity_level: 'sedentary' | 'moderate' | 'active';
+interface Lifestyle {
+  physical_activity_level: string;
   sleep_hours: number;
   wake_up_time: string;
   alcohol_consumption: {
-    drinks: boolean;
-    frequency?: string;
+    drinks: boolean | null;
   };
   smoking: {
-    smokes: boolean;
-    cigarettes_per_day?: number;
+    smokes: boolean | null;
   };
   work_hours: number;
   supplements: string[];
@@ -63,24 +57,23 @@ type Lifestyle = {
   };
   water_intake: number;
   urination: {
-    normal: boolean;
+    normal: boolean | null;
     observations: string;
   };
-};
+}
 
 // Tipos para os hábitos alimentares
-type EatingHabits = {
-  previous_diets: boolean;
+interface EatingHabits {
+  previous_diets: boolean | null;
   diet_difficulties: string[];
   daily_routine: string;
   disliked_foods: string[];
   favorite_foods: string[];
   soda_consumption: {
-    drinks: boolean;
-    frequency?: string;
+    drinks: boolean | null;
   };
   weekend_eating: string;
-  eats_watching_tv: boolean;
+  eats_watching_tv: boolean | null;
   water_intake: number;
   preferred_taste?: 'sweet' | 'salty' | 'sour' | 'bitter';
   hunger_peak_time?: string;
@@ -93,10 +86,10 @@ type EatingHabits = {
     speed: 'fast' | 'slow';
     observations: string;
   };
-};
+}
 
 // Tipo principal do formulário
-type FormData = {
+interface FormData {
   full_name: string;
   birth_date: string;
   weight: number;
@@ -119,10 +112,10 @@ type FormData = {
   health_history: HealthHistory;
   lifestyle: Lifestyle;
   eating_habits: EatingHabits;
-};
+}
 
 // Tipo para os campos do formulário
-type Field = {
+interface Field {
   name: string;
   label: string;
   type: string;
@@ -133,7 +126,7 @@ type Field = {
     value: string;
     label: string;
   }>;
-};
+}
 
 // Função auxiliar para acessar valores aninhados com segurança
 const getNestedValue = (obj: any, path: string) => {
@@ -155,10 +148,15 @@ export default function NutritionalAssessmentForm() {
     usual_weight: 0,
     weight_changes: {},
     health_history: {
+      has_chronic_diseases: null,
       chronic_diseases: '',
+      has_previous_surgeries: null,
       previous_surgeries: '',
+      has_food_allergies: null,
       food_allergies: '',
+      has_medications: null,
       medications: '',
+      has_family_history: null,
       family_history: '',
       anxiety_level: 0,
     },
@@ -167,10 +165,10 @@ export default function NutritionalAssessmentForm() {
       sleep_hours: 0,
       wake_up_time: '',
       alcohol_consumption: {
-        drinks: false,
+        drinks: null,
       },
       smoking: {
-        smokes: false,
+        smokes: null,
       },
       work_hours: 0,
       supplements: [],
@@ -180,21 +178,21 @@ export default function NutritionalAssessmentForm() {
       },
       water_intake: 0,
       urination: {
-        normal: true,
+        normal: null,
         observations: '',
       },
     },
     eating_habits: {
-      previous_diets: false,
+      previous_diets: null,
       diet_difficulties: [],
       daily_routine: '',
       disliked_foods: [],
       favorite_foods: [],
       soda_consumption: {
-        drinks: false,
+        drinks: null,
       },
       weekend_eating: '',
-      eats_watching_tv: false,
+      eats_watching_tv: null,
       water_intake: 0,
     },
   });
@@ -205,8 +203,8 @@ export default function NutritionalAssessmentForm() {
       fields: [
         { name: 'full_name', label: 'Nome Completo', type: 'text' },
         { name: 'birth_date', label: 'Data de Nascimento', type: 'date' },
-        { name: 'weight', label: 'Peso Atual (kg)', type: 'number', step: '0.1' },
-        { name: 'usual_weight', label: 'Peso Habitual (kg)', type: 'number', step: '0.1' },
+        { name: 'weight', label: 'Peso Atual (kg) (Seu peso hoje.)', type: 'number', step: '0.1' },
+        { name: 'usual_weight', label: 'Peso Habitual (kg) (Seu peso médio ao longo do tempo.)', type: 'number', step: '0.1' },
         { name: 'height', label: 'Altura (m)', type: 'number', step: '0.01' },
         { name: 'marital_status', label: 'Estado Civil', type: 'select', options: [
           { value: 'solteiro', label: 'Solteiro(a)' },
@@ -219,21 +217,13 @@ export default function NutritionalAssessmentForm() {
     },
     {
       title: 'Histórico de Saúde',
-      fields: formType === 'feminino' ? [
-        { name: 'health_history.gynecological_diseases', label: 'Doenças Ginecológicas', type: 'text' },
-        { name: 'health_history.menstrual_cycle.first_period_age', label: 'Idade da Primeira Menstruação', type: 'number' },
-        { name: 'health_history.menstrual_cycle.is_regular', label: 'Ciclo Menstrual Regular?', type: 'boolean' },
-        { name: 'health_history.menstrual_cycle.cycle_duration', label: 'Duração do Ciclo (dias)', type: 'number' },
-        { name: 'health_history.pregnancies.count', label: 'Número de Gestações', type: 'number' },
-        { name: 'health_history.contraceptive.method', label: 'Método Contraceptivo', type: 'text' }
-      ] : [
-        { name: 'health_history.chronic_diseases', label: 'Doenças Crônicas', type: 'text' },
-        { name: 'health_history.previous_surgeries', label: 'Cirurgias Anteriores', type: 'text' },
-        { name: 'health_history.food_allergies', label: 'Alergias ou Intolerâncias Alimentares', type: 'text' },
-        { name: 'health_history.medications', label: 'Medicamentos em Uso', type: 'text' },
-        { name: 'health_history.family_history', label: 'Histórico Familiar de Doenças', type: 'text' },
-        { name: 'health_history.anxiety_level', label: 'Nível de Ansiedade (0-10)', type: 'number', min: 0, max: 10 }
-      ]
+      component: () => (
+        <HealthHistorySection
+          formData={formData}
+          handleInputChange={handleInputChange}
+          formType={formType}
+        />
+      )
     },
     {
       title: 'Estilo de Vida',
@@ -368,71 +358,75 @@ export default function NutritionalAssessmentForm() {
         </h1>
 
         <div className="space-y-6">
-          {currentStepData.fields.map((field: Field) => (
-            <div key={field.name} className="space-y-2">
-              <label className="block text-sm font-medium text-white">
-                {field.label}
-              </label>
-              {field.type === 'select' ? (
-                <select
-                  value={getNestedValue(formData, field.name) || ''}
-                  onChange={(e) => handleInputChange(field.name, e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-white/20 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 text-white"
-                >
-                  <option value="">Selecione...</option>
-                  {field.options?.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              ) : field.type === 'textarea' ? (
-                <textarea
-                  value={getNestedValue(formData, field.name) || ''}
-                  onChange={(e) => handleInputChange(field.name, e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-white/20 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 text-white"
-                  rows={4}
-                />
-              ) : field.type === 'boolean' ? (
-                <div className="flex space-x-4">
-                  <button
-                    type="button"
-                    onClick={() => handleInputChange(field.name, true)}
-                    className={`px-4 py-2 rounded-xl transition-all ${
-                      getNestedValue(formData, field.name) === true
-                        ? 'bg-[#FF5733] text-white'
-                        : 'bg-white/20 text-white'
-                    }`}
+          {currentStepData.component ? (
+            <currentStepData.component />
+          ) : (
+            currentStepData.fields.map((field: Field) => (
+              <div key={field.name} className="space-y-2">
+                <label className="block text-sm font-medium text-white">
+                  {field.label}
+                </label>
+                {field.type === 'select' ? (
+                  <select
+                    value={getNestedValue(formData, field.name) || ''}
+                    onChange={(e) => handleInputChange(field.name, e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-white/20 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 text-white"
                   >
-                    Sim
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleInputChange(field.name, false)}
-                    className={`px-4 py-2 rounded-xl transition-all ${
-                      getNestedValue(formData, field.name) === false
-                        ? 'bg-[#FF5733] text-white'
-                        : 'bg-white/20 text-white'
-                    }`}
-                  >
-                    Não
-                  </button>
-                </div>
-              ) : (
-                <input
-                  type={field.type}
-                  value={getNestedValue(formData, field.name) || ''}
-                  onChange={(e) => handleInputChange(field.name, 
-                    field.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value
-                  )}
-                  step={field.step}
-                  min={field.min}
-                  max={field.max}
-                  className="w-full px-4 py-3 rounded-xl bg-white/20 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 text-white"
-                />
-              )}
-            </div>
-          ))}
+                    <option value="" className="bg-gray-800">Selecione...</option>
+                    {field.options?.map((option) => (
+                      <option key={option.value} value={option.value} className="bg-gray-800">
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : field.type === 'textarea' ? (
+                  <textarea
+                    value={getNestedValue(formData, field.name) || ''}
+                    onChange={(e) => handleInputChange(field.name, e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-white/20 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 text-white"
+                    rows={4}
+                  />
+                ) : field.type === 'boolean' ? (
+                  <div className="flex space-x-4">
+                    <button
+                      type="button"
+                      onClick={() => handleInputChange(field.name, true)}
+                      className={`px-4 py-2 rounded-xl transition-all ${
+                        getNestedValue(formData, field.name) === true
+                          ? 'bg-[#FF5733] text-white'
+                          : 'bg-white/20 text-white'
+                      }`}
+                    >
+                      Sim
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInputChange(field.name, false)}
+                      className={`px-4 py-2 rounded-xl transition-all ${
+                        getNestedValue(formData, field.name) === false
+                          ? 'bg-[#FF5733] text-white'
+                          : 'bg-white/20 text-white'
+                      }`}
+                    >
+                      Não
+                    </button>
+                  </div>
+                ) : (
+                  <input
+                    type={field.type}
+                    value={getNestedValue(formData, field.name) || ''}
+                    onChange={(e) => handleInputChange(field.name, 
+                      field.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value
+                    )}
+                    step={field.step}
+                    min={field.min}
+                    max={field.max}
+                    className="w-full px-4 py-3 rounded-xl bg-white/20 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 text-white"
+                  />
+                )}
+              </div>
+            ))
+          )}
         </div>
 
         <div className="flex justify-between mt-8">

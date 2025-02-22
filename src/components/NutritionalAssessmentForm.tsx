@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
@@ -197,6 +197,14 @@ export default function NutritionalAssessmentForm() {
     },
   });
 
+  useEffect(() => {
+    if (!phoneId) {
+      console.log('Nenhum telefone verificado. Redirecionando para a página inicial...');
+      navigate('/');
+      return;
+    }
+  }, [phoneId, navigate]);
+
   const steps = [
     {
       title: 'Dados Pessoais',
@@ -337,6 +345,10 @@ export default function NutritionalAssessmentForm() {
   };
 
   const currentStepData = steps[currentStep - 1];
+
+  if (!phoneId) {
+    return null; // Não renderiza nada enquanto redireciona
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-8">

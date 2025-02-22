@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
@@ -27,6 +27,7 @@ type FormData = {
 export default function AssessmentForm() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { phoneId } = location.state || {};
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     sex: '',
@@ -43,6 +44,14 @@ export default function AssessmentForm() {
     risk_condition: '',
     injury: '',
   });
+
+  useEffect(() => {
+    if (!phoneId) {
+      console.log('Nenhum telefone verificado. Redirecionando para a página inicial...');
+      navigate('/');
+      return;
+    }
+  }, [phoneId, navigate]);
 
   const questions = [
     {
@@ -320,6 +329,10 @@ export default function AssessmentForm() {
     // Para a última etapa (revisão)
     return true;
   };
+
+  if (!phoneId) {
+    return null; // Não renderiza nada enquanto redireciona
+  }
 
   return (
     <div className="max-w-2xl mx-auto p-8">

@@ -1,0 +1,61 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']
+
+  - job_name: 'app'
+    static_configs:
+      - targets: ['app1:3000', 'app2:3000', 'app3:3000']
+
+  # Configuração para monitorar o próprio Prometheus
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Configuração para monitorar o Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+
+# Regras de alerta
+rules:
+  - alert: HighCPUUsage
+    expr: rate(process_cpu_seconds_total[5m]) * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Alto uso de CPU"
+      description: "O uso de CPU está acima de 80% por 5 minutos"
+
+  - alert: HighMemoryUsage
+    expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Alto uso de memória"
+      description: "O uso de memória está acima de 85% por 5 minutos"
+
+  - alert: HighResponseTime
+    expr: http_request_duration_seconds{quantile="0.9"} > 2
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Tempo de resposta alto"
+      description: "90% das requisições estão demorando mais de 2 segundos" 
